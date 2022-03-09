@@ -41,16 +41,16 @@
 
         </div>
 
-        <div class="w-full h-full px-3 flex flex-col justify-between hidden" id="chat">
+        <div class="w-full h-full px-3 flex flex-col justify-between" id="chat">
 
             <div class="w-full bg-indigo-400 p-3 mt-2 rounded shadow shadow-indigo-200 flex justify-between items-center">
-                <h3 class="text-sm font-bold text-white">Nombre</h3>
+                <h3 class="text-sm font-bold text-white">Chat grupo</h3>
                 <box-icon name="x" color="#FFF" class="text-sm cursor-pointer rounded-full"></box-icon>
             </div>
 
-            <div class=" h-screen my-2 py-1 overflow-auto flex flex-col gap-2">
+            <div class=" h-screen my-2 py-1 overflow-auto flex flex-col gap-2" id="list-mensajes">
                 
-                <div class="w-full flex">
+                <!-- <div class="w-full flex">
                     <div class="w-fit max-w-[70%] flex justify-between items-center gap-2">
                         <span class="bg-indigo-300 rounded-lg rounded-tl-none py-2 px-2 text-xs font-bold w-full">Hola</span>
                         <span class="text-gray-300 text-xs">04:10pm</span>
@@ -62,7 +62,7 @@
                         <span class="text-gray-300 text-xs">04:10pm</span>
                         <span class="bg-indigo-100 rounded-lg rounded-tr-none py-2 px-2 text-xs font-bold w-full">Hola, ¿Cómo estás? Espero que estes muy bien, necesitaba hablar contigo sobre una cosa.</span>
                     </div>
-                </div>
+                </div> -->
 
             </div>
 
@@ -70,15 +70,15 @@
                 <span class="text-gray-500 text-xs"><span class="font-bold">Nombre</span> está escribiendo...</span>
                 <div class="bg-gray-200 rounded shadow text-xs flex px-3 py-2 mb-2">
 
-                    <input class="w-full bg-gray-200 py-2 outline-0" />
-                    <button type="button" class="bg-indigo-400 hover:bg-indigo-500 text-white rounded py-2 px-4">Enviar</button>
+                    <input type="text" id="txt_mensaje" class="w-full bg-gray-200 py-2 outline-0" />
+                    <button type="button" id="btn_enviar" class="bg-indigo-400 hover:bg-indigo-500 text-white rounded py-2 px-4">Enviar</button>
 
                 </div>
             </div>
 
         </div>
 
-        <div class="w-full h-full flex justify-center items-center" id="empty-chat">
+        <div class="w-full h-full flex justify-center items-center hidden" id="empty-chat">
             <h3 class="text-2xl font-bold text-gray-400">Seleccione un chat</h3>
         </div>
 
@@ -90,11 +90,17 @@
     <script>
 
         var socket = io();
-        var username;
+        var username = '';
 
-        socket.on('nuevo mensaje', function (msj) {
-            $('#listado-msjs').append($('<li>').text(msj));
+        listarUsuarios();
+
+        socket.on('list_users', () => {
+            listarUsuarios();
         });
+
+        socket.on('list_mensajes', (id_user) => {
+            listarMensajes(id_user);
+        })
 
         //LOGIN
         document.getElementById('txt_user').addEventListener('keyup', function(e) {
@@ -106,29 +112,72 @@
                 document.getElementById('form-user').classList.add('hidden');
                 document.getElementById('form-chat').classList.remove('hidden');
 
-                listarUsuarios();
-
+                socket.emit('insert_user', this.value);
             }
         });
 
         //LISTAR LOS USUARIOS
         function listarUsuarios() {
-            let usuarios = [];
-            let str = '';
+            fetch('data')
+            .then(res => res.json())
+            .then(data => {
 
-            if(usuarios.length == 0) {
-                str += '<li class="text-gray-400 font-bold cursor-pointer mb-0.5 p-2 text-sm text-center">No hay usuarios conectados</li>';
-            } else {
+                let users = data.users;
+                let str = '';
+                if(users.length == 0) {
+                    str += '<li class="text-gray-400 font-bold cursor-pointer mb-0.5 p-2 text-sm text-center">No hay usuarios conectados</li>';
+                } else {
+                    for(usuario of users) {
+                        str += `<li class="font-bold cursor-pointer mb-0.5 p-2 text-sm rounded hover:bg-indigo-400 hover:text-white">${usuario.user}</li>`;
+                    }
+                }
+                document.getElementById('list-users').innerHTML = str;
+            });
+        }
 
-                for(usuario of usuarios) {
-                    str += `<li class="font-bold cursor-pointer mb-0.5 p-2 text-sm rounded hover:bg-indigo-400 hover:text-white">${usuario}</li>`;
+        //LISTAR LOS MENSAJES
+        function listarMensajes(id_user) {
+            fetch('data')
+            .then(res => res.json())
+            .then(data => {
+
+                let mensajes = data.mensajes;
+                let str = '';
+                if(mensajes.length > 0) {
+
+                    for(item of mensajes) {
+                        str += `<div class="w-full flex ${(item.id_user == id_user) ? 'justify-end' : ''}">
+                                    <div class="w-fit max-w-[70%] flex justify-between items-center gap-2">
+                                    <span class="${(item.id_user == id_user) ? 'bg-indigo-100' : 'bg-indigo-300'} rounded-lg rounded-tl-none py-2 px-2 text-xs font-bold w-full">${item.mensaje}</span>
+                                    <span class="text-gray-300 text-xs">${item.hora}</span>
+                                    </div>
+                                </div>`;
+                                    
+                    }
+
                 }
 
-            }
+                document.getElementById('list-mensajes').innerHTML = str;
 
-            document.getElementById('list-users').innerHTML = str;
+            });
 
         }
+
+        //INSERTAR MENSAJES
+        document.getElementById('btn_enviar').addEventListener('click', enviarMensaje);
+        document.getElementById('txt_mensaje').addEventListener('keyup', function(e) {
+            e.preventDefault();
+            if(e.key == "Enter") {
+                enviarMensaje();
+            }
+        });
+
+        function enviarMensaje() {
+            let mensaje = document.getElementById('txt_mensaje');
+            socket.emit('insert_mensaje', socket.id, username, mensaje.value);
+            mensaje.value = '';
+        }
+
 
         //LOGOUT
         document.getElementById('logout').addEventListener('click', function() {
@@ -138,10 +187,10 @@
             document.getElementById('form-chat').classList.add('hidden');
         });
 
-        function enviarMensaje() {
-            socket.emit('nuevo mensaje', $('#nuevo-msj').val());
-            $('#nuevo-msj').val('');
-        };
+        // function enviarMensaje() {
+        //     socket.emit('nuevo mensaje', $('#nuevo-msj').val());
+        //     $('#nuevo-msj').val('');
+        // };
     </script>
 </body>
 
