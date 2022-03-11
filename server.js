@@ -5,7 +5,6 @@ var io = require('socket.io')(http);
 var cors = require('cors');
 var {read, write} = require('./files');
 
-// app.use(express.urlencoded({extended:false}));
 app.use(express.json());
 app.use(cors({origin: '*', optionsSuccessStatus: 200}));
 
@@ -13,6 +12,7 @@ app.get('/', function (req, res) {
     res.sendFile(__dirname + '/index.html');
 });
 
+// RETORNA LA PETICIÓN
 app.get('/data', function(req, res) {
     res.send(read());
 });
@@ -34,6 +34,7 @@ io.on('connection', function (socket) {
         
     });
 
+    // ESCUCHA UN NUEVO MENSAJE PARA INSERTARLO
     socket.on('insert_mensaje', function (user, mensaje) {
         let data = read();
         data.mensajes.push({
@@ -46,10 +47,12 @@ io.on('connection', function (socket) {
 
     });
 
+    // ESCUCHA EL EVENTO DE ESCRIBIENDO
     socket.on('inicio_escribiendo', (username) => {
         io.emit('mostrar_escribiendo', username);
     });
 
+    // ESCUCHA EL EVENTO DE LOGOUT
     socket.on('logout', (username) => {
         let data = read();
 
@@ -60,6 +63,7 @@ io.on('connection', function (socket) {
             io.emit('list_users');
     });
 
+    // ESCUCHA EL EVENTO DE DESCONECTAR
     socket.on('disconnect', () => {
         console.log('Usuario desconectado ' + socket.id);
         let data = read();
