@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <title>Chat app</title>
 
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,19 +21,23 @@
 
 <body class="w-full h-screen bg-gray-300 flex justify-center items-center">
 
-    <h2 class="absolute top-10 left-10 font-bold text-2xl text-indigo-400">Chat App</h2>
+    <h2 class="absolute top-10 left-10 font-bold text-2xl text-indigo-400 hidden lg:inline">Chat App</h2>
 
-    <div class="flex flex-col gap-3 w-1/4" id="form-user">
+    <div class="flex flex-col gap-3 w-2/3 lg:w-1/4" id="form-user">
 
-        <label class="font-bold">Ingresa tu usuario</label>
+        <label class="font-bold text-lg lg:text-sm text-center lg:text-left">Ingresa tu usuario</label>
         <input type="text" class="w-full px-3 py-2 rounded shadow outline-0" id="txt_user" placeholder="@username" />
 
     </div>
 
-    <div class="bg-white rounded-lg shadow overflow-hidden flex h-2/3 w-2/3 hidden" id="form-chat">
+    <div class="bg-white rounded-lg shadow overflow-hidden flex h-full lg:h-2/3 w-full lg:w-2/3 hidden" id="form-chat">
 
-        <div class="h-full w-1/3 bg-gray-200 flex flex-col justify-between">
+        <div class="h-full w-3/4 lg:w-1/3 bg-gray-200 flex flex-col justify-between absolute -left-full lg:left-0 lg:relative z-10" id="section-usuarios-conectados">
 
+            <h4 class="text-gray-400 text-sm py-3 lg:py-1 px-3 font-bold flex justify-between">
+                Usuarios conectados 
+                <box-icon name="x" color="#39393" onclick="abrir_cerrar_usuarios_conectados()"></box-icon>
+            </h4>
             <ul class="h-full m-0 py-2 px-3 overflow-auto" id="list-users"></ul>
 
             <div class="w-full bg-indigo-400 py-2 px-3 flex justify-between items-center">
@@ -44,35 +50,17 @@
         <div class="w-full h-full px-3 flex flex-col justify-between" id="chat">
 
             <div class="w-full bg-indigo-400 p-3 mt-2 rounded shadow shadow-indigo-200 flex justify-between items-center">
+                <box-icon name="menu-alt-left" class="lg:hidden" color="#FFF" onclick="abrir_cerrar_usuarios_conectados()"></box-icon>
                 <h3 class="text-sm font-bold text-white">Chat grupo</h3>
-                <box-icon name="x" color="#FFF" class="text-sm cursor-pointer rounded-full"></box-icon>
             </div>
 
-            <div class=" h-screen my-2 py-1 overflow-auto flex flex-col gap-2" id="list-mensajes">
-                
-                <!-- <div class="w-full flex">
-                    <div class="w-fit max-w-[70%] flex justify-between items-center gap-2">
-                        <span class="bg-indigo-300 rounded-lg rounded-tl-none py-2 px-2 text-xs font-bold w-full">Hola</span>
-                        <span class="text-gray-300 text-xs">04:10pm</span>
-                    </div>
-                </div>
+            <div class="w-full h-screen my-2 py-1 overflow-auto flex flex-col gap-2" id="list-mensajes"></div>
 
-                <div class="w-full flex justify-end">
-                    <div class="w-fit max-w-[70%] flex justify-between items-center gap-2">
-                        <span class="text-gray-300 text-xs">04:10pm</span>
-                        <span class="bg-indigo-100 rounded-lg rounded-tr-none py-2 px-2 text-xs font-bold w-full">Hola, ¿Cómo estás? Espero que estes muy bien, necesitaba hablar contigo sobre una cosa.</span>
-                    </div>
-                </div> -->
-
-            </div>
-
-            <div class="flex flex-col gap-2">
-                <span class="text-gray-500 text-xs"><span class="font-bold">Nombre</span> está escribiendo...</span>
+            <div class="flex flex-col gap-2 absolute w-11/12 lg:w-auto left-4 lg:left-0 lg:relative bottom-5 lg:bottom-0">
+                <span class="text-gray-500 text-xs" id="usuario_escribiendo"></span>
                 <div class="bg-gray-200 rounded shadow text-xs flex px-3 py-2 mb-2">
-
                     <input type="text" id="txt_mensaje" class="w-full bg-gray-200 py-2 outline-0" />
                     <button type="button" id="btn_enviar" class="bg-indigo-400 hover:bg-indigo-500 text-white rounded py-2 px-4">Enviar</button>
-
                 </div>
             </div>
 
@@ -92,27 +80,57 @@
         var socket = io();
         var username = '';
 
-        listarUsuarios();
+        // LOGIN (VALIDACIÓN DE USUARIO)
+        document.getElementById('txt_user').addEventListener('keyup', function(e) {
+            if(e.keyCode === 13) {
+                e.preventDefault();
 
+                username = this.value;
+                
+                fetch('login', {
+                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST',
+                    body: JSON.stringify({username})
+                })
+                .then(res => res.json())
+                .then(data => {
+
+                    if(data) {
+                        alert('Este usuario ya se encuentra en el sistema, escoga otro.');
+                    } else {
+                        document.getElementById('form-user').classList.add('hidden');
+                        document.getElementById('form-chat').classList.remove('hidden');
+                        listarUsuarios();
+                        listarMensajes();
+                    }
+                    document.getElementById('lbl_user').innerHTML = username;
+                });
+
+            }
+        });
+
+        // SOCKET DE ESCUCHA PARA LOS USUARIOS ENTRANTES
         socket.on('list_users', () => {
             listarUsuarios();
         });
 
-        socket.on('list_mensajes', (id_user) => {
-            listarMensajes(id_user);
-        })
+        // SOCKET DE ESCUCHA PARA LOS MENSAJES ENTRANTES
+        socket.on('list_mensajes', () => {
+            listarMensajes();
+        });
 
-        //LOGIN
-        document.getElementById('txt_user').addEventListener('keyup', function(e) {
-            if(e.keyCode === 13) {
-                e.preventDefault();
-                username = this.value;
-                document.getElementById('lbl_user').innerHTML = this.value;
+        // INICIAR ACCIÓN DE ESCRIBIR Y EMITIRLA
+        document.getElementById('txt_mensaje').addEventListener('keyup', function() {
+            socket.emit('inicio_escribiendo', username);
+        });
 
-                document.getElementById('form-user').classList.add('hidden');
-                document.getElementById('form-chat').classList.remove('hidden');
-
-                socket.emit('insert_user', this.value);
+        // MOSTRAR ESCRIBIENDO
+        socket.on('mostrar_escribiendo', (nombre) => {
+            if(nombre != username) {
+                document.getElementById('usuario_escribiendo').innerHTML = `<strong>${nombre}</strong> está escribiendo...`;
+                setTimeout(function() {
+                    document.getElementById('usuario_escribiendo').innerHTML = ``;
+                }, 4000);
             }
         });
 
@@ -124,19 +142,16 @@
 
                 let users = data.users;
                 let str = '';
-                if(users.length == 0) {
-                    str += '<li class="text-gray-400 font-bold cursor-pointer mb-0.5 p-2 text-sm text-center">No hay usuarios conectados</li>';
-                } else {
-                    for(usuario of users) {
-                        str += `<li class="font-bold cursor-pointer mb-0.5 p-2 text-sm rounded hover:bg-indigo-400 hover:text-white">${usuario.user}</li>`;
-                    }
+                for(usuario of users) {
+                    if(usuario != username)
+                        str += `<li class="font-bold mb-0.5 p-2 text-sm">${usuario}</li>`;
                 }
                 document.getElementById('list-users').innerHTML = str;
             });
         }
 
         //LISTAR LOS MENSAJES
-        function listarMensajes(id_user) {
+        function listarMensajes() {
             fetch('data')
             .then(res => res.json())
             .then(data => {
@@ -146,18 +161,21 @@
                 if(mensajes.length > 0) {
 
                     for(item of mensajes) {
-                        str += `<div class="w-full flex ${(item.id_user == id_user) ? 'justify-end' : ''}">
-                                    <div class="w-fit max-w-[70%] flex justify-between items-center gap-2">
-                                    <span class="${(item.id_user == id_user) ? 'bg-indigo-100' : 'bg-indigo-300'} rounded-lg rounded-tl-none py-2 px-2 text-xs font-bold w-full">${item.mensaje}</span>
-                                    <span class="text-gray-300 text-xs">${item.hora}</span>
+                        str += `<div class="w-full flex ${(item.username == username) ? 'justify-end' : ''}">
+                                    <div class="w-fit max-w-[70%] flex ${(item.username == username) ? 'flex-row-reverse' : ''} justify-between items-center gap-2">
+                                        <div class="${(item.username == username) ? 'bg-indigo-100' : 'bg-indigo-300'} rounded-lg rounded-tl-none py-2 px-3 text-xs w-full flex flex-col gap-1">
+                                            <span class="font-bold text-xs">${(item.username == username) ? 'Tú' : item.username}</span>
+                                            <span>${item.mensaje}
+                                        </div>
+                                        <span class="text-gray-300 text-xs">${item.hora}</span>
                                     </div>
-                                </div>`;
-                                    
+                                </div>`;  
                     }
 
                 }
 
                 document.getElementById('list-mensajes').innerHTML = str;
+                document.getElementById('list-mensajes').scrollTop=document.getElementById('list-mensajes').scrollHeight;
 
             });
 
@@ -174,23 +192,27 @@
 
         function enviarMensaje() {
             let mensaje = document.getElementById('txt_mensaje');
-            socket.emit('insert_mensaje', socket.id, username, mensaje.value);
+            socket.emit('insert_mensaje', username, mensaje.value);
             mensaje.value = '';
         }
 
+        // MOSTRAR U OCULTAR LOS USUARIOS CONECTADOS DESDE EL CELULAR
+        function abrir_cerrar_usuarios_conectados() {
+
+            let div = document.getElementById('section-usuarios-conectados');
+            div.classList.toggle('-left-full');
+
+        };
 
         //LOGOUT
         document.getElementById('logout').addEventListener('click', function() {
+            socket.emit('logout', username);
             document.getElementById('txt_user').value = '';
             username = '';
             document.getElementById('form-user').classList.remove('hidden');
             document.getElementById('form-chat').classList.add('hidden');
         });
 
-        // function enviarMensaje() {
-        //     socket.emit('nuevo mensaje', $('#nuevo-msj').val());
-        //     $('#nuevo-msj').val('');
-        // };
     </script>
 </body>
 

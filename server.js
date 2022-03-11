@@ -1,7 +1,13 @@
-var app = require('express')();
+var express = require('express');
+var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var cors = require('cors');
 var {read, write} = require('./files');
+
+// app.use(express.urlencoded({extended:false}));
+app.use(express.json());
+app.use(cors({origin: '*', optionsSuccessStatus: 200}));
 
 app.get('/', function (req, res) {
     res.sendFile(__dirname + '/index.html');
@@ -13,33 +19,48 @@ app.get('/data', function(req, res) {
 
 io.on('connection', function (socket) {
 
-    console.log('Usuario conectado socket:' + socket.id); 
-
-    socket.on('insert_user', (username) => {
+    // VALIDACIÓN DEL LOGIN
+    app.post('/login', (req, res) => {
+        
         let data = read();
-        data.users.push({
-            id: socket.id,
-            user: username
-        });
-        if(write(data))
+        if(data.users.includes(req.body.username)) {
+            res.send(JSON.parse(true));
+        } else {
+            data.users.push(req.body.username);
+            write(data);
+            res.send(JSON.parse(false));
             io.emit('list_users');
-            io.emit('list_mensajes');
+        }
+        
     });
 
-    socket.on('insert_mensaje', function (id_user, user, mensaje) {
+    socket.on('insert_mensaje', function (user, mensaje) {
         let data = read();
         data.mensajes.push({
-            id_user: id_user,
             username: user,
             mensaje: mensaje,
             hora: '04:30pm'
         });
         if(write(data))
-            io.emit('list_mensajes', id_user);
+            io.emit('list_mensajes');
 
     });
 
-    socket.on('disconnect', function () {
+    socket.on('inicio_escribiendo', (username) => {
+        io.emit('mostrar_escribiendo', username);
+    });
+
+    socket.on('logout', (username) => {
+        let data = read();
+
+        let index = data.users.indexOf(username);
+        data.users.splice(index, 1);
+
+        if(write(data))
+            io.emit('list_users');
+    });
+
+    socket.on('disconnect', () => {
         console.log('Usuario desconectado ' + socket.id);
         let data = read();
         let ids = data.users.map(item => item.id);
